@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -45,6 +46,24 @@ const badgeConfig: Record<
 interface ResultsTableProps {
   results: CheckResult[];
   pending: string[];
+}
+
+function downloadCsv(results: CheckResult[]) {
+  const header = "Store URL,Account Type,Notes";
+  const rows = results.map((r) => {
+    const url = r.url.replace(/^https?:\/\//, "");
+    const type = badgeConfig[r.type].label;
+    const notes = (r.note || r.error || "").replace(/"/g, '""');
+    return `${url},${type},"${notes}"`;
+  });
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "shopify-account-check-results.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function ResultsTable({ results, pending }: ResultsTableProps) {
@@ -119,8 +138,17 @@ export function ResultsTable({ results, pending }: ResultsTableProps) {
                 </span>
               );
             })}
-            <span className="text-muted-foreground ml-auto">
-              {results.length} total checked
+            <span className="flex items-center gap-3 ml-auto">
+              <span className="text-muted-foreground">
+                {results.length} total checked
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCsv(results)}
+              >
+                Download CSV
+              </Button>
             </span>
           </div>
         </>
