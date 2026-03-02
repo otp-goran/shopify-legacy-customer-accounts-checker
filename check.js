@@ -134,6 +134,14 @@ async function checkStore(storeUrl) {
       }
 
       if (lastStatus === 404) {
+        if (storeUrl.includes(".myshopify.com")) {
+          return {
+            url: storeUrl,
+            type: "closed",
+            status: lastStatus,
+            note: "Store is closed or deactivated",
+          };
+        }
         return {
           url: storeUrl,
           type: "not-shopify",
