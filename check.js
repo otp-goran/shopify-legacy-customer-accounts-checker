@@ -15,12 +15,18 @@ if (values.help || (positionals.length === 0 && !values.file)) {
   console.log(`Usage:
   node check.js <store-url>              Check a single store
   node check.js <url1> <url2> ...        Check multiple stores
-  node check.js -f <file>                Check stores from a file (one URL per line)
+  node check.js -f <file>                Check stores from a file (one URL per line, or CSV)
+
+Supported file formats:
+  .txt     One URL per line
+  .csv     Auto-extracts *.myshopify.com domains from all columns
+           Filters out email addresses (shop@*.myshopify.com)
 
 Examples:
   node check.js mystore.myshopify.com
   node check.js https://example-store.com
-  node check.js -f stores.txt`);
+  node check.js -f stores.txt
+  node check.js -f export.csv`);
   process.exit(0);
 }
 
@@ -76,9 +82,19 @@ async function checkStore(storeUrl) {
         continue;
       }
 
-      // 406 from a different domain than the store = new accounts with custom domain
-      // Shopify's new customer accounts on custom domains return 406 for non-browser requests
+      // 406 from a different domain than the store
       if (lastStatus === 406 && currentUrl !== loginUrl) {
+        // Closed/deactivated stores redirect to shopify.com/{shop_id}/account
+        if (/shopify\.com\/\d+\/account/.test(currentUrl)) {
+          return {
+            url: storeUrl,
+            type: "closed",
+            status: lastStatus,
+            note: "Store is closed or deactivated",
+          };
+        }
+
+        // New customer accounts on custom domains return 406 for non-browser requests
         const redirectHost = new URL(currentUrl).hostname;
         const storeHost = new URL(storeUrl).hostname;
         if (redirectHost !== storeHost) {
@@ -227,15 +243,39 @@ function classifyFromBody(storeUrl, body, status) {
   };
 }
 
+function extractUrlsFromCsv(content) {
+  const lines = content.split(/\r?\n/).filter((l) => l.trim());
+  const urls = new Set();
+
+  for (const line of lines) {
+    const cells = line.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+    for (const cell of cells) {
+      if (cell.includes("@")) continue;
+      const match = cell.match(/([\w-]+\.myshopify\.com)/i);
+      if (match) {
+        urls.add(match[1].toLowerCase());
+      }
+    }
+  }
+
+  return [...urls];
+}
+
 // Gather URLs
 let urls = [];
 
 if (values.file) {
   const content = readFileSync(values.file, "utf-8");
-  urls = content
-    .split("\n")
-    .map(normalizeUrl)
-    .filter((u) => u !== null);
+  const isCsv = values.file.toLowerCase().endsWith(".csv");
+
+  if (isCsv) {
+    urls = extractUrlsFromCsv(content).map(normalizeUrl).filter((u) => u !== null);
+  } else {
+    urls = content
+      .split("\n")
+      .map(normalizeUrl)
+      .filter((u) => u !== null);
+  }
 }
 
 urls.push(...positionals.map(normalizeUrl).filter((u) => u !== null));
@@ -262,6 +302,7 @@ const typeLabels = {
   new: "NEW Customer Accounts",
   legacy: "LEGACY Customer Accounts",
   "password-protected": "PASSWORD PROTECTED",
+  closed: "CLOSED / DEACTIVATED",
   "not-shopify": "NOT A SHOPIFY STORE",
   unknown: "UNKNOWN",
   error: "ERROR",
@@ -271,6 +312,7 @@ const typeIcons = {
   new: "\u2728",
   legacy: "\u{1F527}",
   "password-protected": "\u{1F512}",
+  closed: "\u{1F6D1}",
   "not-shopify": "\u{1F6AB}",
   unknown: "\u2753",
   error: "\u274C",
