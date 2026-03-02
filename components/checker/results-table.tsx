@@ -29,6 +29,10 @@ const badgeConfig: Record<
     label: "Password Protected",
     className: "bg-orange-100 text-orange-800 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-200",
   },
+  closed: {
+    label: "Closed",
+    className: "bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-200",
+  },
   "not-shopify": {
     label: "Not Shopify",
     className: "bg-gray-100 text-gray-800 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-200",

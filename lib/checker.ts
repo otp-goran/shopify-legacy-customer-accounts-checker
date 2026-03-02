@@ -2,6 +2,7 @@ export type AccountType =
   | "new"
   | "legacy"
   | "password-protected"
+  | "closed"
   | "not-shopify"
   | "unknown"
   | "error";
@@ -149,6 +150,16 @@ export async function checkStore(storeUrl: string): Promise<CheckResult> {
       }
 
       if (lastStatus === 406 && currentUrl !== loginUrl) {
+        // Closed/deactivated stores redirect to shopify.com/{shop_id}/account
+        if (/shopify\.com\/\d+\/account/.test(currentUrl)) {
+          return {
+            url: storeUrl,
+            type: "closed",
+            status: lastStatus,
+            note: "Store is closed or deactivated",
+          };
+        }
+
         const redirectHost = new URL(currentUrl).hostname;
         const storeHost = new URL(storeUrl).hostname;
         if (redirectHost !== storeHost) {
