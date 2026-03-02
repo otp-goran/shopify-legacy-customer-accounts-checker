@@ -15,26 +15,45 @@ import type { CheckResult } from "@/lib/checker";
 export default function Home() {
   const [input, setInput] = useState("");
   const [results, setResults] = useState<CheckResult[]>([]);
-  const [pending, setPending] = useState<string[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [fileUrls, setFileUrls] = useState<string[]>([]);
+  const [fileInfo, setFileInfo] = useState<{
+    name: string;
+    count: number;
+  } | null>(null);
+
+  const handleFileLoad = useCallback(
+    (urls: string[], fileName: string) => {
+      setFileUrls(urls);
+      setFileInfo({ name: fileName, count: urls.length });
+    },
+    []
+  );
+
+  const handleFileClear = useCallback(() => {
+    setFileUrls([]);
+    setFileInfo(null);
+  }, []);
 
   const handleCheck = useCallback(async () => {
-    const urls = input
+    const textUrls = input
       .split(/[\n,]+/)
       .map((u) => u.trim())
       .filter(Boolean);
 
-    if (urls.length === 0) return;
+    const allUrls = [...textUrls, ...fileUrls];
+    if (allUrls.length === 0) return;
 
     setLoading(true);
     setResults([]);
-    setPending(urls);
+    setTotalCount(allUrls.length);
 
     try {
       const response = await fetch("/api/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls }),
+        body: JSON.stringify({ urls: allUrls }),
       });
 
       if (!response.ok || !response.body) {
@@ -53,33 +72,26 @@ export default function Home() {
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
 
+        const newResults: CheckResult[] = [];
         for (const line of lines) {
           if (!line.trim()) continue;
-          const result: CheckResult = JSON.parse(line);
-          setResults((prev) => [...prev, result]);
-          setPending((prev) =>
-            prev.filter((u) => {
-              const normalized = u.trim().startsWith("http")
-                ? u.trim()
-                : `https://${u.trim()}`;
-              return normalized.replace(/\/+$/, "") !== result.url;
-            })
-          );
+          newResults.push(JSON.parse(line));
+        }
+        if (newResults.length > 0) {
+          setResults((prev) => [...prev, ...newResults]);
         }
       }
 
       if (buffer.trim()) {
         const result: CheckResult = JSON.parse(buffer);
         setResults((prev) => [...prev, result]);
-        setPending([]);
       }
     } catch {
-      setPending([]);
+      // Error handled by finally
     } finally {
       setLoading(false);
-      setPending([]);
     }
-  }, [input]);
+  }, [input, fileUrls]);
 
   return (
     <main className="min-h-screen bg-background p-4 md:p-8">
@@ -100,17 +112,27 @@ export default function Home() {
               onChange={setInput}
               onSubmit={handleCheck}
               loading={loading}
+              fileInfo={fileInfo}
+              onFileLoad={handleFileLoad}
+              onFileClear={handleFileClear}
             />
           </CardContent>
         </Card>
 
-        {(results.length > 0 || pending.length > 0) && (
+        {(results.length > 0 || loading) && (
           <Card>
             <CardHeader>
-              <CardTitle>Results</CardTitle>
+              <CardTitle className="flex items-center gap-3">
+                Results
+                {loading && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {results.length} / {totalCount.toLocaleString()} checked...
+                  </span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResultsTable results={results} pending={pending} />
+              <ResultsTable results={results} />
             </CardContent>
           </Card>
         )}

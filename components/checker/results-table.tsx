@@ -49,7 +49,6 @@ const badgeConfig: Record<
 
 interface ResultsTableProps {
   results: CheckResult[];
-  pending: string[];
 }
 
 function downloadCsv(results: CheckResult[]) {
@@ -70,8 +69,8 @@ function downloadCsv(results: CheckResult[]) {
   URL.revokeObjectURL(url);
 }
 
-export function ResultsTable({ results, pending }: ResultsTableProps) {
-  if (results.length === 0 && pending.length === 0) return null;
+export function ResultsTable({ results }: ResultsTableProps) {
+  if (results.length === 0) return null;
 
   const counts = results.reduce(
     (acc, r) => {
@@ -110,20 +109,6 @@ export function ResultsTable({ results, pending }: ResultsTableProps) {
               </TableRow>
             );
           })}
-          {pending.map((url) => (
-            <TableRow key={`pending-${url}`}>
-              <TableCell className="font-mono text-sm text-muted-foreground">
-                {url.replace(/^https?:\/\//, "")}
-              </TableCell>
-              <TableCell>
-                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-muted-foreground" />
-                  Checking...
-                </span>
-              </TableCell>
-              <TableCell />
-            </TableRow>
-          ))}
         </TableBody>
       </Table>
 
